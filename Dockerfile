@@ -21,13 +21,13 @@ RUN apt-get update && \
     apt-get install -y python3-pip
 
 # Set working directory
-WORKDIR /app
-
-# Copy any necessary files into the container
-COPY . .
+ENV HOME=/provisioner
+COPY . /provisioner
+RUN chmod -R g+w ${HOME} && chgrp -R root ${HOME}
+WORKDIR /provisioner
 
 # Install any necessary dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Set the command to be run when the container starts
-CMD [ "python3", "script.py" ]
+# CMD [ "python3", "script.py" ]
