@@ -31,7 +31,7 @@ objects:
     source:
       git:
         ref: main
-        uri: 'https://github.com/prabhukiran9999/pr-script.git'
+        uri: 'https://github.com/prabhukiran9999/provisioner-image.git'
       type: Git
     strategy:
       dockerStrategy:
@@ -54,7 +54,7 @@ parameters:
     your just experimenting.
   displayName: Git Repo URL
   name: GIT_REPO_URL
-  value: https://github.com/prabhukiran9999/pr-script.git
+  value: https://github.com/prabhukiran9999/provisioner-image.git
   required: true
 - description: The git reference or branch.
   displayName: Git Reference

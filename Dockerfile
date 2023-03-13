@@ -30,4 +30,4 @@ WORKDIR /provisioner
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Set the command to be run when the container starts
-# CMD [ "python3", "script.py" ]
+CMD [ "python3", "script.py" ]
