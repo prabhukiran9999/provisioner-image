@@ -159,7 +159,7 @@ COMMIT_MESSAGE = f'Creating other layers for the project set-{checkout_branch_na
 git_push()
 step = "layer-creation"
 layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{checkout_branch_name}", f"-b Adding layers to the new project set-{checkout_branch_name} using provisonor script", "-rwrnu"])
-pr_url = layer_pr.decode("utf-8").rstrip() 
+pr_url = layer_prr.decode("utf-8").rstrip() 
 print ('Pull_request for layers created successfully')
 
 
