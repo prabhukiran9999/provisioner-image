@@ -138,12 +138,16 @@ def push_workflow_status(push_workflow_id):
 pr_workflow_status(workflow_id,pr_url)
 pr_status=pr_workflow_status(workflow_id,pr_url)
 time.sleep(5)
-push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-push_status = push_workflow_status(push_workflow_id)
-print(push_status)
-
+if pr_status == "success":
+    push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
+    push_status = push_workflow_status(push_workflow_id)
+    print(push_status)
+else:
+    push_status = "failure"
+    print(f"pull request workflow for {step} is {pr_status}")
+    
 # Create layers if push workflow status are succesfull
-if pr_status == "success" and push_status == "success":
+if push_status == "success":
     try :
         os.chdir('./bin')
         layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{checkout_branch_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
