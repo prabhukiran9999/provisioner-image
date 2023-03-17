@@ -135,8 +135,8 @@ def push_workflow_status(push_workflow_id):
             print(f"Push workflow for {step} failed")
             return push_workflow_conclusion
 
-pr_workflow_status(workflow_id,pr_url)
-pr_status=pr_workflow_status(workflow_id,pr_url)
+pr_status = pr_workflow_status(workflow_id,pr_url)
+# pr_status=pr_workflow_status(workflow_id,pr_url)
 time.sleep(5)
 if pr_status == "success":
     push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
@@ -145,7 +145,7 @@ if pr_status == "success":
 else:
     push_status = "failure"
     print(f"pull request workflow for {step} is {pr_status}")
-    
+
 # Create layers if push workflow status are succesfull
 if push_status == "success":
     try :
