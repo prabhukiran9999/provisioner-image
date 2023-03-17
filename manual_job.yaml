@@ -1,0 +1,54 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: aws-app-provisioner
+  labels:
+    app: aws-app-provisioner
+  namespace: platform-provisioner-tools
+objects:
+  - kind: Job
+    apiVersion: batch/v1
+    metadata:
+      name: aws-app-provisioner
+      labels:
+        app: aws-app-provisioner
+      namespace: platform-provisioner-tools
+    spec:
+      backoffLimit: 2
+      completions: 1
+      parallelism: 1
+      template:
+        metadata:
+          labels:
+            app: aws-app-provisioner
+        spec:
+          containers:
+            - image: "image-registry.openshift-image-registry.svc:5000/platform-provisioner-tools/aws-app-provisioner:latest"
+              imagePullPolicy: Always
+              name: aws-app-provisioner
+              workingDir: /provisioner
+              resources: {}
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              # command: ["ansible-playbook"]
+              # args:
+              #   [
+              #     "acs.yaml",
+              #     "-e activity=team_access",
+              #     "-e api_token=$(ACS_API_TOKEN)",
+              #     "-e api_endpoint=$(ACS_API_ENDPOINT)",
+              #     "-e project_set=${PROJECT_LICENSE_PLATE}",
+              #     "-e openshift_username=${PROJECT_CONTACTS_USERSNAME}",
+              #   ]
+              env:
+                - name: token
+                  valueFrom:
+                    secretKeyRef:
+                      name: prabhu-github-token
+                      key: token
+                - name: NATS_MSG
+                  value: '{ "project_set_info": { "licence_plate":"bzmxvc", "project_name": "Project Registry Automation", "admin_email":"John.Doe@gov.bc.ca", "admin_name":"John Doe", "billing_group":"whate" } }'
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          terminationGracePeriodSeconds: 30

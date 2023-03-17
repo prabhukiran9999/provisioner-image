@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: aws-ecf-provisioner
+    deployment: project-registry-aws
+    role: server
+  name: project-registry-aws
+  namespace: platform-provisioner-tools
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 0
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aws-ecf-provisioner
+      deployment: project-registry-aws
+      role: api
+  strategy:
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: aws-ecf-provisioner
+        deployment: project-registry-aws
+        role: api
+    spec:
+      containers:
+      - env:
+        - name: json_var
+          value: '{ "project_set_info": { "project_name": "Project Registry Automation", "admin_email":"John.Doe@gov.bc.ca", "admin_name":"John Doe", "billing_group":"abcde" } }'
+        - name: token
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: prabhu-github-token
+        image: image-registry.openshift-image-registry.svc:5000/platform-provisioner-tools/aws-app-provisioner:latest
+        imagePullPolicy: Always
+        name: project-registry-aws
+        ports:
+        - containerPort: 4000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 300m
+            memory: 128Mi
+          requests:
+            cpu: 200m
+            memory: 92Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

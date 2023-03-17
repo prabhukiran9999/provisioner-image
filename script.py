@@ -116,6 +116,7 @@ def pr_workflow_status(workflow_id,pr_url):
         elif workflow_status =="completed" and workflow_conclusion == "failure":
             print(f"pull request  workflow for {step} failed")
             return workflow_conclusion
+             
 
 # Function to get the Push workflow status
 def push_workflow_status(push_workflow_id):
@@ -135,13 +136,14 @@ def push_workflow_status(push_workflow_id):
             return push_workflow_conclusion
 
 pr_workflow_status(workflow_id,pr_url)
+pr_status=pr_workflow_status(workflow_id,pr_url)
 time.sleep(5)
 push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
 push_status = push_workflow_status(push_workflow_id)
 print(push_status)
 
 # Create layers if push workflow status are succesfull
-if push_status == "success":
+if pr_status == "success" and push_status == "success":
     try :
         os.chdir('./bin')
         layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{checkout_branch_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
@@ -161,7 +163,6 @@ step = "layer-creation"
 layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{checkout_branch_name}", f"-b Adding layers to the new project set-{checkout_branch_name} using provisonor script", "-rwrnu"])
 pr_url = layer_pr.decode("utf-8").rstrip() 
 print ('Pull_request for layers created successfully')
-
 
 #Sleep for 5 sec after pull request is created so the actions will register
 time.sleep(5) #Sleep for 5 secs
