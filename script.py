@@ -29,7 +29,7 @@ gh_version = call(["gh", "--version"])
 subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
 
 # Get project data from the json env variable
-json_env_var = os.environ.get('json_var')
+json_env_var = os.environ.get('NATS_MSG')
 project_data = json.loads(json_env_var)if json_env_var else {}
 project_name = project_data["project_set_info"]["project_name"]
 admin_email = project_data["project_set_info"]["admin_email"]
