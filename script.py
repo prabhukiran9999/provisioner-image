@@ -67,19 +67,17 @@ checkout_branch = repo.git.checkout('-b', checkout_branch_name)
 # Commit message for Push
 COMMIT_MESSAGE = f'Creating accounts for new project set-{checkout_branch_name}'
 def git_push():
-    # branch = checkout_branch_name
     repo = Repo('.')
     repo.git.add(all=True)
     repo.index.commit(COMMIT_MESSAGE)
-    # remote = repo.remote(name="origin")
     origin = repo.remote(name='origin')
     origin.push(checkout_branch_name)
     
 git_push()
-time.sleep(5)
+# time.sleep(5)
 
 
-## Create Pull reequest and sleep for 5 min
+## Create Pull reequest and sleep for 5 sec
 pr_url = subprocess.check_output(["gh", "pr", "create", f"-t Creating accounts for a new project set-{checkout_branch_name}", f"-b creating accounts for a new project set-({checkout_branch_name}) using provisonor script", "-rwrnu"]).decode("utf-8").rstrip()
 print (f'Pull_request for new project-set({checkout_branch_name}) accounts created successfully')
 #Sleep for 5 sec after pull request is created so the actions will register
@@ -152,7 +150,15 @@ if push_status == "success":
         os.chdir('./bin')
         layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{checkout_branch_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
         if layer_creation == 0:
-            print("layers created seccussfully") 
+            print(f"layers for {checkout_branch_name} created successfully")
+            os.chdir('../')
+            COMMIT_MESSAGE = f'Creating other layers for the project set-{checkout_branch_name}'
+            git_push()
+            step = "layer-creation"
+            layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{checkout_branch_name}", f"-b Adding layers to the new project set-{checkout_branch_name} using provisonor script", "-rwrnu"])
+            pr_url = layer_pr.decode("utf-8").rstrip()
+            time.sleep(5) #Sleep for 5 secs
+            print (f'Pull_request for layers created successfully at {pr_url}')
         else:
             print(f"problem creating pull request for layers")
     except subprocess.CalledProcessError as e:
@@ -160,23 +166,17 @@ if push_status == "success":
 else:
     print("Push workflow for accounts failed")
 
-os.chdir('../')
-COMMIT_MESSAGE = f'Creating other layers for the project set-{checkout_branch_name}'
-git_push()
-step = "layer-creation"
-layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{checkout_branch_name}", f"-b Adding layers to the new project set-{checkout_branch_name} using provisonor script", "-rwrnu"])
-pr_url = layer_pr.decode("utf-8").rstrip() 
-print ('Pull_request for layers created successfully')
-
-#Sleep for 5 sec after pull request is created so the actions will register
-time.sleep(5) #Sleep for 5 secs
-print(pr_url)
 workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", checkout_branch_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-pr_workflow_status(workflow_id,pr_url)
+layer_pr_status = pr_workflow_status(workflow_id,pr_url)
 time.sleep(5)
-push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-push_status = push_workflow_status(push_workflow_id)
-print(push_status)
+
+if layer_pr_status == "success":
+    push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
+    push_status = push_workflow_status(push_workflow_id)
+    print(push_status)
+else:
+    push_status = "failure"
+    print(f"pull request workflow for {step} is {pr_status}")
 
 
 #Checkout to main and  Delete the branch locally

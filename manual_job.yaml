@@ -47,7 +47,7 @@ objects:
                       name: prabhu-github-token
                       key: token
                 - name: NATS_MSG
-                  value: '{ "project_set_info": { "licence_plate":"bzmxvc", "project_name": "Project Registry Automation", "admin_email":"John.Doe@gov.bc.ca", "admin_name":"John Doe", "billing_group":"whate" } }'
+                  value: '{ "project_set_info": { "project_name": "Project Registry Automation", "admin_email":"John.Doe@gov.bc.ca", "admin_name":"John Doe", "billing_group":"whate" } }'
           dnsPolicy: ClusterFirst
           restartPolicy: Never
           schedulerName: default-scheduler
