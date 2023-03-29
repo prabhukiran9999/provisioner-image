@@ -23,7 +23,7 @@ objects:
             app: aws-app-provisioner
         spec:
           containers:
-            - image: "image-registry.openshift-image-registry.svc:5000/platform-provisioner-tools/aws-app-provisioner:latest"
+            - image: "image-registry.openshift-image-registry.svc:5000/platform-provisioner-tools/aws-app-provisioner:v1.0.0"
               imagePullPolicy: Always
               name: aws-app-provisioner
               workingDir: /provisioner

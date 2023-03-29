@@ -35,13 +35,19 @@ project_name = project_data["project_set_info"]["project_name"]
 admin_email = project_data["project_set_info"]["admin_email"]
 admin_name = project_data["project_set_info"]["admin_name"]
 billing_group = project_data["project_set_info"]["billing_group"] 
-# Look for a specific key in the JSON object
+
+def git_repo_root():
+    command = "git rev-parse --show-toplevel"
+    result = os.popen(command).read().strip()
+    return result
+
+# Look for a Licence Plate in the JSON object
 key="licence_plate"
 LicencePlate = project_data["project_set_info"].get(key)
 # Execute project-set creation script
 if LicencePlate:
     try :
-        os.chdir('./bin')
+        os.chdir(f'{git_repo_root()}/source/bin')
         pwd = os.getcwd()
         print(pwd)
         subprocess.call(["./project_set_admin.sh", "-lp", f"{LicencePlate}", "-pn", f"{project_name}", "-ae", f"{admin_email}", "-an", f"{admin_name}", "-bg", f"{billing_group}", "-e", "tools", "-e", "dev", "-e", "test", "-e", "prod", "-l", "accounts"])
@@ -49,37 +55,35 @@ if LicencePlate:
         print(e)
 else:   
     try :
-        os.chdir('./bin')
+        os.chdir(f'{git_repo_root()}/source/bin')
         pwd = os.getcwd()
         print(pwd)
         subprocess.call(['./project_set_admin.sh',"-pn", f"{project_name}", "-ae", f"{admin_email}", "-an", f"{admin_name}", "-bg", f"{billing_group}", "-e", "tools", "-e", "dev", "-e", "test", "-e", "prod", "-l", "accounts"])
     except subprocess.CalledProcessError as e:
         print(e)
-os.chdir('../')
+os.chdir(f'{git_repo_root()}/../')
 # Get the project-set name created
 project_set_info = subprocess.check_output(["git", "ls-files", "--others", "--directory", "--exclude-standard"], cwd=repo_path).decode("utf-8").rstrip()
-checkout_branch_name = project_set_info.strip("/").replace("projects/", "")
-print(checkout_branch_name)
-
+project_set_name = project_set_info.strip("/").replace("projects/", "")
+print(project_set_name)
 
 #Create a new branch with the name of the project set created
-checkout_branch = repo.git.checkout('-b', checkout_branch_name)
+checkout_branch = repo.git.checkout('-b', project_set_name)
 # Commit message for Push
-COMMIT_MESSAGE = f'Creating accounts for new project set-{checkout_branch_name}'
+COMMIT_MESSAGE = f'Creating accounts for new project set-{project_set_name}'
 def git_push():
     repo = Repo('.')
     repo.git.add(all=True)
     repo.index.commit(COMMIT_MESSAGE)
     origin = repo.remote(name='origin')
-    origin.push(checkout_branch_name)
+    origin.push(project_set_name)
     
 git_push()
 # time.sleep(5)
 
-
 ## Create Pull reequest and sleep for 5 sec
-pr_url = subprocess.check_output(["gh", "pr", "create", f"-t Creating accounts for a new project set-{checkout_branch_name}", f"-b creating accounts for a new project set-({checkout_branch_name}) using provisonor script", "-rwrnu"]).decode("utf-8").rstrip()
-print (f'Pull_request for new project-set({checkout_branch_name}) accounts created successfully')
+pr_url = subprocess.check_output(["gh", "pr", "create", f"-t Creating accounts for a new project set-{project_set_name}", f"-b creating accounts for a new project set-({project_set_name}) using provisonor script", "-rwrnu"]).decode("utf-8").rstrip()
+print (f'Pull_request for new project-set({project_set_name}) accounts created successfully')
 #Sleep for 5 sec after pull request is created so the actions will register
 time.sleep(5) #Sleep for 5 secs
 print(pr_url)
@@ -87,7 +91,7 @@ print(pr_url)
 # Check for pull request actions to complete
 check_pr = json.loads(subprocess.check_output(["gh", "pr", "view", pr_url, "--json", "statusCheckRollup"]).decode("utf-8").rstrip())
 print(check_pr)
-workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", checkout_branch_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
+workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", project_set_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
 step = "account-creation"
 
 # Function to get the pull request workflow status and merge the PR once the workflow status are successful
@@ -147,15 +151,15 @@ else:
 # Create layers if push workflow status are succesfull
 if push_status == "success":
     try :
-        os.chdir('./bin')
-        layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{checkout_branch_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
+        os.chdir(f'{git_repo_root()}/source/bin')
+        layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{project_set_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
         if layer_creation == 0:
-            print(f"layers for {checkout_branch_name} created successfully")
-            os.chdir('../')
-            COMMIT_MESSAGE = f'Creating other layers for the project set-{checkout_branch_name}'
+            print(f"layers for {project_set_name} created successfully")
+            os.chdir(f'{git_repo_root()}/../')
+            COMMIT_MESSAGE = f'Creating other layers for the project set-{project_set_name}'
             git_push()
             step = "layer-creation"
-            layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{checkout_branch_name}", f"-b Adding layers to the new project set-{checkout_branch_name} using provisonor script", "-rwrnu"])
+            layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{project_set_name}", f"-b Adding layers to the new project set-{project_set_name} using provisonor script", "-rwrnu"])
             pr_url = layer_pr.decode("utf-8").rstrip()
             time.sleep(5) #Sleep for 5 secs
             print (f'Pull_request for layers created successfully at {pr_url}')
@@ -166,7 +170,7 @@ if push_status == "success":
 else:
     print("Push workflow for accounts failed")
 
-workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", checkout_branch_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
+workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", project_set_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
 layer_pr_status = pr_workflow_status(workflow_id,pr_url)
 time.sleep(5)
 
@@ -177,12 +181,3 @@ if layer_pr_status == "success":
 else:
     push_status = "failure"
     print(f"pull request workflow for {step} is {pr_status}")
-
-
-#Checkout to main and  Delete the branch locally
-subprocess.run(f"git checkout main", shell=True)
-subprocess.run(f"git branch -D {checkout_branch_name}", shell=True)
-
-
-# Delete the branch remotely
-subprocess.run(f"git push origin --delete {checkout_branch_name}", shell=True)
