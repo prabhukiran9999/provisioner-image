@@ -61,7 +61,8 @@ else:
         subprocess.call(['./project_set_admin.sh',"-pn", f"{project_name}", "-ae", f"{admin_email}", "-an", f"{admin_name}", "-bg", f"{billing_group}", "-e", "tools", "-e", "dev", "-e", "test", "-e", "prod", "-l", "accounts"])
     except subprocess.CalledProcessError as e:
         print(e)
-os.chdir(f'{git_repo_root()}/../')
+# os.chdir(f'{git_repo_root()}/../')
+os.chdir(f'{git_repo_root()}')
 # Get the project-set name created
 project_set_info = subprocess.check_output(["git", "ls-files", "--others", "--directory", "--exclude-standard"], cwd=repo_path).decode("utf-8").rstrip()
 project_set_name = project_set_info.strip("/").replace("projects/", "")
@@ -155,7 +156,8 @@ if push_status == "success":
         layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{project_set_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
         if layer_creation == 0:
             print(f"layers for {project_set_name} created successfully")
-            os.chdir(f'{git_repo_root()}/../')
+            # os.chdir(f'{git_repo_root()}/../')
+            os.chdir(f'{git_repo_root()}')
             COMMIT_MESSAGE = f'Creating other layers for the project set-{project_set_name}'
             git_push()
             step = "layer-creation"
