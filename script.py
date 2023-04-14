@@ -1,185 +1,175 @@
 import subprocess
+import logging
 import os
 import json
-from subprocess import call
+import glob
 import time
-import git
 from git import Repo
 
-# Token to use GH CLI and clone the repo
-token = os.getenv("token")
+logging.basicConfig(level=logging.NOTSET)
 
-#Clone the Github repo
-org_name= "prabhukiran9999"
-repo_name = "pr-script"
-repo_url = f'https://{token}@github.com/{org_name}/{repo_name}.git'
-repo_dir = os.path.join(os.getcwd(), repo_name)
-os.makedirs(repo_dir, exist_ok=True)
+TOKEN = os.getenv("token")
+ORG_NAME = "prabhukiran9999"
+REPO_NAME = "pr-script"
 
-# Clone the repository
-git.Repo.clone_from(repo_url, repo_dir, recursive=True)
-os.chdir(repo_name)
-repo_path = "./"
-repo = Repo(repo_path)
+def clone_and_authenticate(token, org, repo_name):
+    repo_url = f'https://{token}@github.com/{org}/{repo_name}.git'
+    repo_dir = os.path.join(os.getcwd(), repo_name)
+    os.makedirs(repo_dir, exist_ok=True)
 
-#Get GH Cli version
-gh_version = call(["gh", "--version"])
+    try:
+        repo = Repo.clone_from(repo_url, repo_dir, recursive=True)
+        subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
+        print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
+        os.chdir(repo.working_tree_dir)
+        return repo
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        return None
 
-# Execute the `gh auth login` command and provide your personal access token as input
-subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
+def git_push(repo, commit_msg, branch_name):
+    try:
+        repo.git.add(A=True)
+        repo.index.commit(commit_msg)
+        repo.remote(name='origin').push(branch_name)
+    except Exception as e:
+        print(f"Error: {e}")
 
-# Get project data from the json env variable
-json_env_var = os.environ.get('NATS_MSG')
-project_data = json.loads(json_env_var)if json_env_var else {}
-project_name = project_data["project_set_info"]["project_name"]
-admin_email = project_data["project_set_info"]["admin_email"]
-admin_name = project_data["project_set_info"]["admin_name"]
-billing_group = project_data["project_set_info"]["billing_group"] 
+def create_pull_request(title, body, reviewers="svalmiki1102"):
+    try:
+        pr_url = subprocess.check_output(
+            [
+                "gh",
+                "pr",
+                "create",
+                f"--title={title}",
+                f"--body={body}",
+                f"--reviewer={reviewers}"
+            ],
+            text=True,
+        ).strip()
 
-def git_repo_root():
-    command = "git rev-parse --show-toplevel"
-    result = os.popen(command).read().strip()
-    return result
-
-# Look for a Licence Plate in the JSON object
-key="licence_plate"
-LicencePlate = project_data["project_set_info"].get(key)
-# Execute project-set creation script
-if LicencePlate:
-    try :
-        os.chdir(f'{git_repo_root()}/source/bin')
-        pwd = os.getcwd()
-        print(pwd)
-        subprocess.call(["./project_set_admin.sh", "-lp", f"{LicencePlate}", "-pn", f"{project_name}", "-ae", f"{admin_email}", "-an", f"{admin_name}", "-bg", f"{billing_group}", "-e", "tools", "-e", "dev", "-e", "test", "-e", "prod", "-l", "accounts"])
+        logging.info(f"Pull_request with title '{title}' created successfully")
+        time.sleep(5) #to wait for actions to trigger
+        logging.info(pr_url)
+        return pr_url
     except subprocess.CalledProcessError as e:
-        print(e)
-else:   
-    try :
-        os.chdir(f'{git_repo_root()}/source/bin')
-        pwd = os.getcwd()
-        print(pwd)
-        subprocess.call(['./project_set_admin.sh',"-pn", f"{project_name}", "-ae", f"{admin_email}", "-an", f"{admin_name}", "-bg", f"{billing_group}", "-e", "tools", "-e", "dev", "-e", "test", "-e", "prod", "-l", "accounts"])
-    except subprocess.CalledProcessError as e:
-        print(e)
-# os.chdir(f'{git_repo_root()}/../')
-os.chdir(f'{git_repo_root()}')
-# Get the project-set name created
-project_set_info = subprocess.check_output(["git", "ls-files", "--others", "--directory", "--exclude-standard"], cwd=repo_path).decode("utf-8").rstrip()
-project_set_name = project_set_info.strip("/").replace("projects/", "")
-print(project_set_name)
+        logging.error(f"Error creating Pull Request: {e}")
+        return None
 
-#Create a new branch with the name of the project set created
-checkout_branch = repo.git.checkout('-b', project_set_name)
-# Commit message for Push
-COMMIT_MESSAGE = f'Creating accounts for new project set-{project_set_name}'
-def git_push():
-    repo = Repo('.')
-    repo.git.add(all=True)
-    repo.index.commit(COMMIT_MESSAGE)
-    origin = repo.remote(name='origin')
-    origin.push(project_set_name)
-    
-git_push()
-# time.sleep(5)
-
-## Create Pull reequest and sleep for 5 sec
-pr_url = subprocess.check_output(["gh", "pr", "create", f"-t Creating accounts for a new project set-{project_set_name}", f"-b creating accounts for a new project set-({project_set_name}) using provisonor script", "-rwrnu"]).decode("utf-8").rstrip()
-print (f'Pull_request for new project-set({project_set_name}) accounts created successfully')
-#Sleep for 5 sec after pull request is created so the actions will register
-time.sleep(5) #Sleep for 5 secs
-print(pr_url)
-
-# Check for pull request actions to complete
-check_pr = json.loads(subprocess.check_output(["gh", "pr", "view", pr_url, "--json", "statusCheckRollup"]).decode("utf-8").rstrip())
-print(check_pr)
-workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", project_set_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-step = "account-creation"
-
-# Function to get the pull request workflow status and merge the PR once the workflow status are successful
-def pr_workflow_status(workflow_id,pr_url):
-    workflow_status = ""
-    while workflow_status != "completed":
-        time.sleep(5)
-        workflow_status = json.loads(subprocess.check_output(["gh", "run", "view", workflow_id, "--json", "status"]))['status']
-        workflow_conclusion = json.loads(subprocess.check_output(["gh", "run", "view", workflow_id, "--json", "conclusion"]))['conclusion']
-        if workflow_status in ('queued', 'in_progress'):
-            print(f'Pull request workflow status for {step} is {workflow_status}')
-            continue
-        elif workflow_status == "completed" and workflow_conclusion == "success":
-            print(f'pull request workflow status for {step} is {workflow_status} and is {workflow_conclusion}')
-            # Merge pull request when workflow is successful
-            merge_pr = subprocess.call(["gh", "pr", "merge", pr_url, "--admin", "-m"])
-            if merge_pr == 0:
-                print(f"Pull request,{pr_url} merged successfully")
-                time.sleep(5)
-                return workflow_conclusion
-            else:
-                print(f"problem merging a PR,{pr_url}")
-                break
-        elif workflow_status =="completed" and workflow_conclusion == "failure":
-            print(f"pull request  workflow for {step} failed")
-            return workflow_conclusion
-             
-
-# Function to get the Push workflow status
-def push_workflow_status(push_workflow_id):
-    push_workflow_status = ""
-    while push_workflow_status != "completed":
-        time.sleep(5)
-        push_workflow_status = json.loads(subprocess.check_output(["gh", "run", "view", push_workflow_id, "--json", "status"]))['status']
-        push_workflow_conclusion = json.loads(subprocess.check_output(["gh", "run", "view", push_workflow_id, "--json", "conclusion"]))['conclusion']
-        if push_workflow_status in ('queued', 'in_progress'):
-            print(f'push workflow status for {step} is {push_workflow_status}')
-            continue
-        elif push_workflow_status == "completed" and push_workflow_conclusion == "success":
-            print(f'push workflow status for {step} is {push_workflow_status} and is {push_workflow_conclusion}')
-            return push_workflow_conclusion
-        elif push_workflow_status == "completed" and push_workflow_conclusion == "failure":
-            print(f"Push workflow for {step} failed")
-            return push_workflow_conclusion
-
-pr_status = pr_workflow_status(workflow_id,pr_url)
-# pr_status=pr_workflow_status(workflow_id,pr_url)
-time.sleep(5)
-if pr_status == "success":
-    push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-    push_status = push_workflow_status(push_workflow_id)
-    print(push_status)
-else:
-    push_status = "failure"
-    print(f"pull request workflow for {step} is {pr_status}")
-
-# Create layers if push workflow status are succesfull
-if push_status == "success":
-    try :
-        os.chdir(f'{git_repo_root()}/source/bin')
-        layer_creation = subprocess.call(['./project_set_admin.sh',"-lp", f"{project_set_name}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"])
-        if layer_creation == 0:
-            print(f"layers for {project_set_name} created successfully")
-            # os.chdir(f'{git_repo_root()}/../')
-            os.chdir(f'{git_repo_root()}')
-            COMMIT_MESSAGE = f'Creating other layers for the project set-{project_set_name}'
-            git_push()
-            step = "layer-creation"
-            layer_pr = subprocess.check_output(["gh", "pr", "create", f"-t Adding Layers to the project set-{project_set_name}", f"-b Adding layers to the new project set-{project_set_name} using provisonor script", "-rwrnu"])
-            pr_url = layer_pr.decode("utf-8").rstrip()
-            time.sleep(5) #Sleep for 5 secs
-            print (f'Pull_request for layers created successfully at {pr_url}')
+def merge_pull_request(pr_status: str, pr_url: str):
+    if pr_status == "success":
+        merge_pr = subprocess.run(["gh", "pr", "merge", pr_url, "--admin", "-m"], capture_output=True, text=True)
+        
+        if merge_pr.returncode == 0:
+            logging.info(f"Pull request {pr_url} merged successfully")
+            time.sleep(5) #to wait for actions to trigger
         else:
-            print(f"problem creating pull request for layers")
+            logging.error(f"Problem merging PR {pr_url}: {merge_pr.stderr.strip()}")
+
+def get_workflow_id(branch_name):
+    return str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", branch_name, "-L", "1",
+                                                   "--json", "databaseId"]))[0]['databaseId'])
+
+def get_workflow_status(workflow_id):
+    try:
+        cmd = f"gh run view {workflow_id} --json status,conclusion"
+
+        while True:
+            output = subprocess.check_output(cmd, shell=True).decode("utf-8")
+            data = json.loads(output)
+            status, conclusion = data.get("status"), data.get("conclusion")
+            
+            print(f"Status: {status}, Conclusion: {conclusion}")
+
+            if status == "completed":
+                print( "success" if conclusion == "success" else f"failure: {conclusion}")
+                return conclusion
+            else:
+                print(f"Workflow still {status}, waiting...")
+                time.sleep(10)
     except subprocess.CalledProcessError as e:
-        print(e)
-else:
-    print("Push workflow for accounts failed")
+        return f"An error occurred while fetching the workflow status: {e}"
+    
+def get_project_data():
+    json_env_var = os.environ.get('NATS_MSG')
+    return json.loads(json_env_var) if json_env_var else {}
 
-workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", project_set_name, "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-layer_pr_status = pr_workflow_status(workflow_id,pr_url)
-time.sleep(5)
+def execute_project_set_admin_script(args, repo_path):
+    script_path = os.path.join(repo_path, "source", "bin")
+    os.chdir(script_path)
+    try:
+        subprocess.call(["python3","project_set_admin.py"] + args)
+    except subprocess.CalledProcessError as e:
+        logging.error(e)
 
-if layer_pr_status == "success":
-    push_workflow_id = str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", "main", "-L", "1", "--json", "databaseId"]))[0]['databaseId'])
-    push_status = push_workflow_status(push_workflow_id)
-    print(push_status)
-else:
-    push_status = "failure"
-    print(f"pull request workflow for {step} is {pr_status}")
+def get_project_set_name(repo_path):
+    os.chdir(repo_path)
+    directories = glob.glob("projects/*/")
+    return os.path.relpath(directories[0], "projects").rstrip("/") if directories else None
+
+def handle_project(repo, LicencePlate, is_update=False):
+    action = "Updating" if is_update else "Creating"
+    commit_msg = f'{action} project set({LicencePlate})'
+    git_push(repo, commit_msg, LicencePlate)
+    pr_url = create_pull_request(f"{action} project set-{LicencePlate}",
+                                  f"{action} project set-({LicencePlate}) using provisonor script")
+    workflow_id = get_workflow_id(LicencePlate)
+    pr_status = get_workflow_status(workflow_id)
+    if pr_status == "success":
+        merge_pull_request(pr_status, pr_url)
+        workflow_id = get_workflow_id("main")
+        push_status = get_workflow_status(workflow_id)
+        logging.info(push_status)
+    else:
+        print(f"pull request workflow at {pr_url} is {pr_status}")
+
+def main():
+    project_data = get_project_data()
+    project_set_info = project_data.get("project_set_info", {})
+    project_name = project_set_info.get("project_name")
+    admin_email = project_set_info.get("admin_email")
+    admin_name = project_set_info.get("admin_name")
+    billing_group = project_set_info.get("billing_group")
+    LicencePlate = project_set_info.get('licence_plate')
+
+    repo = clone_and_authenticate(TOKEN, ORG_NAME, REPO_NAME)
+    repo_path = repo.working_tree_dir
+    target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
+
+    if target_directory_path and os.path.isdir(target_directory_path):
+        print(f"The directory {LicencePlate} exists in the projects folder.")
+        repo.git.checkout('-b', LicencePlate)
+        args = [
+            "-lp", LicencePlate, "-pn", project_name, "-ae", admin_email,
+            "-an", admin_name, "-bg", billing_group
+        ]
+        execute_project_set_admin_script(args, repo_path)
+        handle_project(repo, LicencePlate, is_update=True)
+    else:
+        print(f"The directory {LicencePlate} does not exist in the projects folder.")
+        args = [
+            "-pn", project_name, "-ae", admin_email, "-an", admin_name,
+            "-bg", billing_group, "-e", "tools", "-e", "dev", "-e", "test",
+            "-e", "prod", "-l", "accounts"
+        ]
+        if LicencePlate:
+            args.insert(0, "-lp")
+            args.insert(1, LicencePlate)
+            execute_project_set_admin_script(args, repo_path)
+        else:
+            execute_project_set_admin_script(args, repo_path)
+            projects_directory = os.path.join(repo.working_tree_dir, "projects")
+            LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
+        print(f"Creating a new project set-{LicencePlate} with accounts layer")
+        repo.git.checkout('-b', LicencePlate)
+        handle_project(repo, LicencePlate, is_update=False)
+        print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
+        args = [
+        "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
+        ]
+        execute_project_set_admin_script(args, repo_path)
+        handle_project(repo, LicencePlate, is_update=False)
+
+if __name__ == "__main__":
+    main()
