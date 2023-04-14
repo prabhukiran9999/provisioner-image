@@ -166,7 +166,7 @@ def main():
         handle_project(repo, LicencePlate, is_update=False)
         print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
         args = [
-        "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
+        "-lp", f"{LicencePlate}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
         ]
         execute_project_set_admin_script(args, repo_path)
         handle_project(repo, LicencePlate, is_update=False)
