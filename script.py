@@ -20,6 +20,10 @@ def clone_and_authenticate(token, org, repo_name):
     os.makedirs(repo_dir, exist_ok=True)
 
     try:
+        # Configure git to use the authentication token for submodule URLs
+        subprocess.run(["git", "config", "--global", "url.https://.insteadOf", "git://"])
+        subprocess.run(["git", "config", "--global", f"url.{repo_url_with_token}.insteadOf", f"https://github.com/{org}/{repo_name}.git"])
+
         repo = Repo.clone_from(repo_url_with_token, repo_dir, recursive=True)
         subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
