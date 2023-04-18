@@ -9,8 +9,8 @@ from git import Repo
 logging.basicConfig(level=logging.NOTSET)
 
 TOKEN = os.getenv("token")
-ORG_NAME = "prabhukiran9999"
-REPO_NAME = "pr-script"
+ORG_NAME = "bcgov-c"
+REPO_NAME = "aws-ecf-forge-workspaces-settings-stack"
 
 def clone_and_authenticate(token, org, repo_name):
     repo_url = f'https://{token}@github.com/{org}/{repo_name}.git'
@@ -35,7 +35,7 @@ def git_push(repo, commit_msg, branch_name):
     except Exception as e:
         print(f"Error: {e}")
 
-def create_pull_request(title, body, reviewers="svalmiki1102"):
+def create_pull_request(title, body, reviewers="wrnu"):
     try:
         pr_url = subprocess.check_output(
             [
@@ -43,8 +43,8 @@ def create_pull_request(title, body, reviewers="svalmiki1102"):
                 "pr",
                 "create",
                 f"--title={title}",
-                f"--body={body}",
-                f"--reviewer={reviewers}"
+                f"--body={body}"
+                # f"--reviewer={reviewers}"
             ],
             text=True,
         ).strip()
@@ -57,15 +57,15 @@ def create_pull_request(title, body, reviewers="svalmiki1102"):
         logging.error(f"Error creating Pull Request: {e}")
         return None
 
-def merge_pull_request(pr_status: str, pr_url: str):
+def close_pull_request(pr_status: str, pr_url: str):
     if pr_status == "success":
-        merge_pr = subprocess.run(["gh", "pr", "merge", pr_url, "--admin", "-m"], capture_output=True, text=True)
+        close_pr = subprocess.run(["gh", "pr", "close", pr_url], capture_output=True, text=True)
         
-        if merge_pr.returncode == 0:
-            logging.info(f"Pull request {pr_url} merged successfully")
-            time.sleep(5) #to wait for actions to trigger
+        if close_pr.returncode == 0:
+            logging.info(f"Pull request {pr_url} closed successfully")
+            time.sleep(30) #to wait for actions to trigger
         else:
-            logging.error(f"Problem merging PR {pr_url}: {merge_pr.stderr.strip()}")
+            logging.error(f"Problem closing PR {pr_url}: {close_pr.stderr.strip()}")
 
 def get_workflow_id(branch_name):
     return str(json.loads(subprocess.check_output(["gh", "run", "list", "-b", branch_name, "-L", "1",
@@ -100,13 +100,14 @@ def execute_project_set_admin_script(args, repo_path):
     os.chdir(script_path)
     try:
         subprocess.call(["python3","project_set_admin.py"] + args)
+        os.chdir(f"{repo_path}")
     except subprocess.CalledProcessError as e:
         logging.error(e)
 
-def get_project_set_name(repo_path):
-    os.chdir(repo_path)
-    directories = glob.glob("projects/*/")
-    return os.path.relpath(directories[0], "projects").rstrip("/") if directories else None
+# def get_project_set_name(repo_path):
+#     os.chdir(repo_path)
+#     directories = glob.glob("projects/*/")
+#     return os.path.relpath(directories[0], "projects").rstrip("/") if directories else None
 
 def handle_project(repo, LicencePlate, is_update=False):
     action = "Updating" if is_update else "Creating"
@@ -117,7 +118,7 @@ def handle_project(repo, LicencePlate, is_update=False):
     workflow_id = get_workflow_id(LicencePlate)
     pr_status = get_workflow_status(workflow_id)
     if pr_status == "success":
-        merge_pull_request(pr_status, pr_url)
+        close_pull_request(pr_status, pr_url)
         workflow_id = get_workflow_id("main")
         push_status = get_workflow_status(workflow_id)
         logging.info(push_status)
@@ -135,6 +136,7 @@ def main():
 
     repo = clone_and_authenticate(TOKEN, ORG_NAME, REPO_NAME)
     repo_path = repo.working_tree_dir
+    print(repo_path)
     target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
 
     if target_directory_path and os.path.isdir(target_directory_path):
@@ -158,6 +160,7 @@ def main():
             args.insert(1, LicencePlate)
             execute_project_set_admin_script(args, repo_path)
         else:
+            print("No licence plate provided. Running the project set admin script to create a random Licence Plate")
             execute_project_set_admin_script(args, repo_path)
             projects_directory = os.path.join(repo.working_tree_dir, "projects")
             LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
