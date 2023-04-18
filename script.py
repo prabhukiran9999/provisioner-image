@@ -14,26 +14,15 @@ REPO_NAME = "aws-ecf-forge-workspaces-settings-stack"
 
 def clone_and_authenticate(token, org, repo_name):
     repo_url = f'https://github.com/{org}/{repo_name}.git'
-    authenticated_url = f'https://{token}@github.com/{org}/{repo_name}.git'
+    repo_url_with_token = repo_url.replace("https://", f"https://{token}@")
     repo_dir = os.path.join(os.getcwd(), repo_name)
     os.makedirs(repo_dir, exist_ok=True)
 
     try:
-        # Clone the main repository
-        repo = Repo.clone_from(authenticated_url, repo_dir)
-
-        # Set the PAT for the submodules
-        os.chdir(repo.working_tree_dir)
-        subprocess.check_call(["git", "config", "credential.helper", "store"])
-        with open(os.path.expanduser("~/.git-credentials"), "w") as f:
-            f.write(authenticated_url)
-
-        # Update the submodules
-        subprocess.check_call(["git", "submodule", "update", "--init", "--recursive"])
-
-        # Authenticate with GH CLI
+        repo = Repo.clone_from(repo_url_with_token, repo_dir, recursive=True)
         subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
+        os.chdir(repo.working_tree_dir)
         return repo
     except Exception as e:
         logging.error(f"Error: {e}")
