@@ -24,8 +24,7 @@ def clone_and_authenticate(token, org, repo_name):
         repo = Repo.clone_from(repo_url_with_token, repo_dir)
 
         # Set the authentication token in the git config
-        with repo.config_writer() as config_writer:
-            config_writer.set_value("http.https://github.com/.extraheader", f"Authorization: token {token}")
+        subprocess.run(["git", "config", "--local", "http.https://github.com/.extraheader", f"Authorization: token {token}"], cwd=repo_dir)
 
         # Initialize and update submodules
         for submodule in repo.submodules:
