@@ -12,6 +12,7 @@ TOKEN = os.getenv("token")
 ORG_NAME = "bcgov-c"
 REPO_NAME = "aws-ecf-forge-workspaces-settings-stack"
 
+
 def clone_and_authenticate(token, org, repo_name):
     repo_url = f'https://github.com/{org}/{repo_name}.git'
     repo_url_with_token = repo_url.replace("https://", f"https://{token}@")
@@ -19,12 +20,23 @@ def clone_and_authenticate(token, org, repo_name):
     os.makedirs(repo_dir, exist_ok=True)
 
     try:
-        repo = Repo.clone_from(repo_url_with_token, repo_dir, recursive=True)
+        subprocess.run(["git", "clone", repo_url_with_token, repo_dir], check=True)
+        os.chdir(repo_dir)
+        
+        # Update submodule URLs with the access token
+        subprocess.run(["git", "config", "--file", ".gitmodules", "--get-regexp", "url"], text=True, check=True, capture_output=True, encoding='utf-8')
+        for submodule_line in submodule_output.stdout.splitlines():
+            _, submodule_url = submodule_line.split()
+            submodule_url_with_token = submodule_url.replace("https://", f"https://{token}@")
+            subprocess.run(["git", "config", "--file", ".gitmodules", "--replace-all", "submodule.{submodule_url}.url", submodule_url_with_token])
+        
+        # Initialize and update submodules
+        subprocess.run(["git", "submodule", "update", "--init", "--recursive"], check=True)
+        
         subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
-        os.chdir(repo.working_tree_dir)
-        return repo
-    except Exception as e:
+        return repo_dir
+    except subprocess.CalledProcessError as e:
         logging.error(f"Error: {e}")
         return None
 
