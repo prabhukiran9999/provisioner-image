@@ -50,7 +50,7 @@ def create_pull_request(title, body, reviewers="wrnu"):
         ).strip()
 
         logging.info(f"Pull_request with title '{title}' created successfully")
-        time.sleep(5) #to wait for actions to trigger
+        time.sleep(30) #to wait for actions to trigger
         logging.info(pr_url)
         return pr_url
     except subprocess.CalledProcessError as e:
