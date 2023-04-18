@@ -24,7 +24,7 @@ def clone_and_authenticate(token, org, repo_name):
         os.chdir(repo_dir)
         
         # Update submodule URLs with the access token
-        subprocess.run(["git", "config", "--file", ".gitmodules", "--get-regexp", "url"], text=True, check=True, capture_output=True, encoding='utf-8')
+        submodule_output = subprocess.run(["git", "config", "--file", ".gitmodules", "--get-regexp", "url"], text=True, check=True, capture_output=True, encoding='utf-8')
         for submodule_line in submodule_output.stdout.splitlines():
             _, submodule_url = submodule_line.split()
             submodule_url_with_token = submodule_url.replace("https://", f"https://{token}@")
