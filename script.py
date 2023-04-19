@@ -14,14 +14,19 @@ repo_name = "aws-ecf-forge-workspaces-settings-stack"
 
 
 def update_submodule_urls(repo, token):
-    config = repo.config_writer()
-    for section in config.sections():
-        if section.startswith("submodule"):
-            url = config.get(section, "url")
-            if url.startswith("https://"):
-                updated_url = url.replace("https://", f"https://{token}@")
-                config.set_value(section, "url", updated_url)
-    config.release()
+    with open(".gitmodules", "r") as f:
+        gitmodules = f.read()
+
+    updated_gitmodules = gitmodules
+    for line in gitmodules.split("\n"):
+        if "url =" in line and "https://" in line:
+            updated_url = line.replace("https://", f"https://{token}@")
+            updated_gitmodules = updated_gitmodules.replace(line, updated_url)
+
+    with open(".gitmodules", "w") as f:
+        f.write(updated_gitmodules)
+
+    repo.git.submodule("sync")
 
 def clone_and_authenticate(token, org, repo_name):
     repo_url = f'https://{token}@github.com/{org}/{repo_name}.git'
@@ -34,7 +39,7 @@ def clone_and_authenticate(token, org, repo_name):
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
         os.chdir(repo.working_tree_dir)
 
-        # Update submodule URLs with token in .git/config
+        # Update submodule URLs with token in .gitmodules and .git/config
         update_submodule_urls(repo, token)
 
         # Initialize and update the submodules
@@ -44,10 +49,21 @@ def clone_and_authenticate(token, org, repo_name):
     except Exception as e:
         logging.error(f"Error: {e}")
         return None
-  
+
 def git_push(repo, commit_msg, branch_name):
     try:
-        repo.git.add(A=True)
+        # Get a list of all files in the repository
+        untracked_files = repo.untracked_files
+        modified_files = [item.a_path for item in repo.index.diff(None)]
+        all_files = untracked_files + modified_files
+
+        # Filter out the .gitmodules file
+        files_to_add = [file for file in all_files if file != ".gitmodules"]
+
+        # Add each file in the filtered list individually
+        for file in files_to_add:
+            repo.git.add(file)
+
         repo.index.commit(commit_msg)
         repo.remote(name='origin').push(branch_name)
     except Exception as e:
