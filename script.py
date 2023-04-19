@@ -8,10 +8,20 @@ from git import Repo
 
 logging.basicConfig(level=logging.NOTSET)
 
-TOKEN = os.getenv("token")
-ORG_NAME = "bcgov-c"
-REPO_NAME = "aws-ecf-forge-workspaces-settings-stack"
+token = os.getenv("token")
+org_name = "bcgov-c"
+repo_name = "aws-ecf-forge-workspaces-settings-stack"
 
+
+def update_submodule_urls(repo, token):
+    config = repo.config_writer()
+    for section in config.sections():
+        if section.startswith("submodule"):
+            url = config.get(section, "url")
+            if url.startswith("https://"):
+                updated_url = url.replace("https://", f"https://{token}@")
+                config.set_value(section, "url", updated_url)
+    config.release()
 
 def clone_and_authenticate(token, org, repo_name):
     repo_url = f'https://{token}@github.com/{org}/{repo_name}.git'
@@ -24,21 +34,8 @@ def clone_and_authenticate(token, org, repo_name):
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
         os.chdir(repo.working_tree_dir)
 
-        # Update submodule URLs with token in .gitmodules
-        with open(".gitmodules", "r") as f:
-            gitmodules = f.read()
-
-        updated_gitmodules = gitmodules
-        for line in gitmodules.split("\n"):
-            if "url =" in line and "https://" in line:
-                updated_url = line.replace("https://", f"https://{token}@")
-                updated_gitmodules = updated_gitmodules.replace(line, updated_url)
-
-        with open(".gitmodules", "w") as f:
-            f.write(updated_gitmodules)
-
-        # Sync the .gitmodules changes to .git/config
-        repo.git.submodule("sync")
+        # Update submodule URLs with token in .git/config
+        update_submodule_urls(repo, token)
 
         # Initialize and update the submodules
         repo.git.submodule('update', '--init', '--recursive')
@@ -155,45 +152,45 @@ def main():
     billing_group = project_set_info.get("billing_group")
     LicencePlate = project_set_info.get('licence_plate')
 
-    repo = clone_and_authenticate(TOKEN, ORG_NAME, REPO_NAME)
+    repo = clone_and_authenticate(token, org_name, repo_name)
     repo_path = repo.working_tree_dir
     print(repo_path)
-    target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
+#     target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
 
-    if target_directory_path and os.path.isdir(target_directory_path):
-        print(f"The directory {LicencePlate} exists in the projects folder.")
-        repo.git.checkout('-b', LicencePlate)
-        args = [
-            "-lp", LicencePlate, "-pn", project_name, "-ae", admin_email,
-            "-an", admin_name, "-bg", billing_group
-        ]
-        execute_project_set_admin_script(args, repo_path)
-        handle_project(repo, LicencePlate, is_update=True)
-    else:
-        print(f"The directory {LicencePlate} does not exist in the projects folder.")
-        args = [
-            "-pn", project_name, "-ae", admin_email, "-an", admin_name,
-            "-bg", billing_group, "-e", "tools", "-e", "dev", "-e", "test",
-            "-e", "prod", "-l", "accounts"
-        ]
-        if LicencePlate:
-            args.insert(0, "-lp")
-            args.insert(1, LicencePlate)
-            execute_project_set_admin_script(args, repo_path)
-        else:
-            print("No licence plate provided. Running the project set admin script to create a random Licence Plate")
-            execute_project_set_admin_script(args, repo_path)
-            projects_directory = os.path.join(repo.working_tree_dir, "projects")
-            LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
-        print(f"Creating a new project set-{LicencePlate} with accounts layer")
-        repo.git.checkout('-b', LicencePlate)
-        handle_project(repo, LicencePlate, is_update=False)
-        print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
-        args = [
-        "-lp", f"{LicencePlate}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
-        ]
-        execute_project_set_admin_script(args, repo_path)
-        handle_project(repo, LicencePlate, is_update=False)
+#     if target_directory_path and os.path.isdir(target_directory_path):
+#         print(f"The directory {LicencePlate} exists in the projects folder.")
+#         repo.git.checkout('-b', LicencePlate)
+#         args = [
+#             "-lp", LicencePlate, "-pn", project_name, "-ae", admin_email,
+#             "-an", admin_name, "-bg", billing_group
+#         ]
+#         execute_project_set_admin_script(args, repo_path)
+#         handle_project(repo, LicencePlate, is_update=True)
+#     else:
+#         print(f"The directory {LicencePlate} does not exist in the projects folder.")
+#         args = [
+#             "-pn", project_name, "-ae", admin_email, "-an", admin_name,
+#             "-bg", billing_group, "-e", "tools", "-e", "dev", "-e", "test",
+#             "-e", "prod", "-l", "accounts"
+#         ]
+#         if LicencePlate:
+#             args.insert(0, "-lp")
+#             args.insert(1, LicencePlate)
+#             execute_project_set_admin_script(args, repo_path)
+#         else:
+#             print("No licence plate provided. Running the project set admin script to create a random Licence Plate")
+#             execute_project_set_admin_script(args, repo_path)
+#             projects_directory = os.path.join(repo.working_tree_dir, "projects")
+#             LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
+#         print(f"Creating a new project set-{LicencePlate} with accounts layer")
+#         repo.git.checkout('-b', LicencePlate)
+#         handle_project(repo, LicencePlate, is_update=False)
+#         print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
+#         args = [
+#         "-lp", f"{LicencePlate}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
+#         ]
+#         execute_project_set_admin_script(args, repo_path)
+#         handle_project(repo, LicencePlate, is_update=False)
 
 if __name__ == "__main__":
     main()
