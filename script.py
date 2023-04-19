@@ -14,20 +14,35 @@ REPO_NAME = "aws-ecf-forge-workspaces-settings-stack"
 
 
 def clone_and_authenticate(token, org, repo_name):
-    repo_url = f'https://github.com/{org}/{repo_name}.git'
-    repo_url_with_token = repo_url.replace("https://", f"https://{token}@")
+    repo_url = f'https://{token}@github.com/{org}/{repo_name}.git'
     repo_dir = os.path.join(os.getcwd(), repo_name)
     os.makedirs(repo_dir, exist_ok=True)
 
     try:
-        # Configure git to use the authentication token for submodule URLs
-        subprocess.run(["git", "config", "--global", "url.https://.insteadOf", "git://"])
-        subprocess.run(["git", "config", "--global", f"url.{repo_url_with_token}.insteadOf", f"https://github.com/{org}/{repo_name}.git"])
-
-        repo = Repo.clone_from(repo_url_with_token, repo_dir, recursive=True)
+        repo = Repo.clone_from(repo_url, repo_dir)
         subprocess.run(["gh", "auth", "login", "--with-token"], input=f"{token}\n", text=True)
         print(f"GH CLI version: {subprocess.check_output(['gh', '--version']).decode('utf-8')}")
         os.chdir(repo.working_tree_dir)
+
+        # Update submodule URLs with token in .gitmodules
+        with open(".gitmodules", "r") as f:
+            gitmodules = f.read()
+
+        updated_gitmodules = gitmodules
+        for line in gitmodules.split("\n"):
+            if "url =" in line and "https://" in line:
+                updated_url = line.replace("https://", f"https://{token}@")
+                updated_gitmodules = updated_gitmodules.replace(line, updated_url)
+
+        with open(".gitmodules", "w") as f:
+            f.write(updated_gitmodules)
+
+        # Sync the .gitmodules changes to .git/config
+        repo.git.submodule("sync")
+
+        # Initialize and update the submodules
+        repo.git.submodule('update', '--init', '--recursive')
+
         return repo
     except Exception as e:
         logging.error(f"Error: {e}")
