@@ -171,42 +171,42 @@ def main():
     repo = clone_and_authenticate(token, org_name, repo_name)
     repo_path = repo.working_tree_dir
     print(repo_path)
-#     target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
+    target_directory_path = os.path.join(repo_path, "projects", LicencePlate) if LicencePlate else None
 
-#     if target_directory_path and os.path.isdir(target_directory_path):
-#         print(f"The directory {LicencePlate} exists in the projects folder.")
-#         repo.git.checkout('-b', LicencePlate)
-#         args = [
-#             "-lp", LicencePlate, "-pn", project_name, "-ae", admin_email,
-#             "-an", admin_name, "-bg", billing_group
-#         ]
-#         execute_project_set_admin_script(args, repo_path)
-#         handle_project(repo, LicencePlate, is_update=True)
-#     else:
-#         print(f"The directory {LicencePlate} does not exist in the projects folder.")
-#         args = [
-#             "-pn", project_name, "-ae", admin_email, "-an", admin_name,
-#             "-bg", billing_group, "-e", "tools", "-e", "dev", "-e", "test",
-#             "-e", "prod", "-l", "accounts"
-#         ]
-#         if LicencePlate:
-#             args.insert(0, "-lp")
-#             args.insert(1, LicencePlate)
-#             execute_project_set_admin_script(args, repo_path)
-#         else:
-#             print("No licence plate provided. Running the project set admin script to create a random Licence Plate")
-#             execute_project_set_admin_script(args, repo_path)
-#             projects_directory = os.path.join(repo.working_tree_dir, "projects")
-#             LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
-#         print(f"Creating a new project set-{LicencePlate} with accounts layer")
-#         repo.git.checkout('-b', LicencePlate)
-#         handle_project(repo, LicencePlate, is_update=False)
-#         print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
-#         args = [
-#         "-lp", f"{LicencePlate}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
-#         ]
-#         execute_project_set_admin_script(args, repo_path)
-#         handle_project(repo, LicencePlate, is_update=False)
+    if target_directory_path and os.path.isdir(target_directory_path):
+        print(f"The directory {LicencePlate} exists in the projects folder.")
+        repo.git.checkout('-b', LicencePlate)
+        args = [
+            "-lp", LicencePlate, "-pn", project_name, "-ae", admin_email,
+            "-an", admin_name, "-bg", billing_group
+        ]
+        execute_project_set_admin_script(args, repo_path)
+        handle_project(repo, LicencePlate, is_update=True)
+    else:
+        print(f"The directory {LicencePlate} does not exist in the projects folder.")
+        args = [
+            "-pn", project_name, "-ae", admin_email, "-an", admin_name,
+            "-bg", billing_group, "-e", "tools", "-e", "dev", "-e", "test",
+            "-e", "prod", "-l", "accounts"
+        ]
+        if LicencePlate:
+            args.insert(0, "-lp")
+            args.insert(1, LicencePlate)
+            execute_project_set_admin_script(args, repo_path)
+        else:
+            print("No licence plate provided. Running the project set admin script to create a random Licence Plate")
+            execute_project_set_admin_script(args, repo_path)
+            projects_directory = os.path.join(repo.working_tree_dir, "projects")
+            LicencePlate = os.path.basename(max(glob.glob(os.path.join(projects_directory, "*/")), key=os.path.getctime).rstrip('/'))
+        print(f"Creating a new project set-{LicencePlate} with accounts layer")
+        repo.git.checkout('-b', LicencePlate)
+        handle_project(repo, LicencePlate, is_update=False)
+        print(f"Accounts for project-set {LicencePlate} created. Creating rest of the layers")
+        args = [
+        "-lp", f"{LicencePlate}", "-l", "alb", "-l", "automation", "-l", "dns", "-l", "sso", "-l", "tfc-aws-automation", "-l", "github-oidc"
+        ]
+        execute_project_set_admin_script(args, repo_path)
+        handle_project(repo, LicencePlate, is_update=False)
 
 if __name__ == "__main__":
     main()
